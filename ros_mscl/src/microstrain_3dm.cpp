@@ -110,6 +110,7 @@ void Microstrain::run()
   bool filter_enable_magnetometer_aiding;
   bool filter_enable_external_heading_aiding;
   bool filter_enable_external_gps_time_update;
+  bool sync_system_time;
   int filter_enable_acceleration_constraint; 
   int filter_enable_velocity_constraint;
   int filter_enable_angular_constraint;
@@ -148,6 +149,7 @@ void Microstrain::run()
   ros::Time::init();
   ros::NodeHandle node;
   ros::NodeHandle private_nh("~");
+  
 
   // Comms Parameters
   std::string port;
@@ -225,7 +227,9 @@ void Microstrain::run()
   private_nh.param("filter_velocity_zupt_topic",      m_velocity_zupt_topic, std::string("/moving_vel"));
   private_nh.param("filter_angular_zupt_topic",       m_angular_zupt_topic, std::string("/moving_ang"));
   private_nh.param("filter_external_gps_time_topic",  m_external_gps_time_topic, std::string("/external_gps_time"));
- 
+  private_nh.param("sync_system_time",                sync_system_time, true);
+
+
   //Additional GQ7 Filter
   private_nh.param("filter_adaptive_level" ,                   filter_adaptive_level, 2);
   private_nh.param("filter_adaptive_time_limit_ms" ,           filter_adaptive_time_limit_ms, 15000);
@@ -276,6 +280,8 @@ void Microstrain::run()
   private_nh.param("raw_file_enable",               m_raw_file_enable, false);
   private_nh.param("raw_file_include_support_data", m_raw_file_include_support_data, false);
   private_nh.param("raw_file_directory",            raw_file_directory, std::string("."));
+
+  inital_time = ros::Time::now();
 
    
   
@@ -1273,7 +1279,14 @@ void Microstrain::run()
     if(filter_enable_external_gps_time_update && m_inertial_device->features().supportsCommand(mscl::MipTypes::Command::CMD_GPS_TIME_UPDATE))
     {
       m_external_gps_time_sub = node.subscribe(m_external_gps_time_topic.c_str(), 1000, &Microstrain::external_gps_time_callback, this);
+    } 
+
+    if(sync_system_time && !filter_enable_external_gps_time_update && 
+      m_inertial_device->features().supportsCommand(mscl::MipTypes::Command::CMD_GPS_TIME_UPDATE)){
+        ROS_INFO("enable system time sync");
+        ros::Timer timer = node.createTimer(ros::Duration(1), &Microstrain::system_time_callback, this);
     }
+
 
     //
     //Main packet processing loop
@@ -1403,6 +1416,8 @@ void Microstrain::parse_imu_packet(const mscl::MipDataPacket &packet)
   {
      time = packet.deviceTimestamp().nanoseconds();
   }
+
+  time = time + inital_time.toSec();
 
   //IMU timestamp
   m_imu_msg.header.seq      = m_imu_valid_packet_count;
@@ -2205,6 +2220,38 @@ void Microstrain::external_gps_time_callback(const sensor_msgs::TimeReference& t
     try
     {
       long utcTime = time.time_ref.toSec() + m_gps_leap_seconds - UTC_GPS_EPOCH_DUR;
+
+      long secs = utcTime % (int)SECS_PER_WEEK;
+
+      int weeks = (utcTime - secs)/SECS_PER_WEEK;
+
+
+      m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_WEEKS, weeks);
+      m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_SECONDS, secs);
+
+      ROS_INFO("GPS Update: w%i, s%i",
+               weeks, secs);
+    }
+    catch(mscl::Error &e)
+    {
+      ROS_ERROR("Error: %s", e.what());
+    }
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Sync To System Time Callback
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+void Microstrain::system_time_callback(const ros::TimerEvent &)
+{
+  ROS_INFO("SYTEM TIME UPDATING Enter");
+  if(m_inertial_device)
+  ROS_INFO("SYTEM TIME UPDATING");
+  {
+    try
+    {
+      long utcTime = ros::Time::now().sec;
 
       long secs = utcTime % (int)SECS_PER_WEEK;
 
