@@ -76,7 +76,7 @@
     
     <param name="publish_imu" value="true" type="bool" />
 
-    <param name="imu_data_rate" value="100"      type="int" />
+    <param name="imu_data_rate" value="1000"      type="int" />
     <param name="imu_frame_id"  value="gx5_link" type="str" />
 
     <!-- Static IMU message covariance values (the device does not generate these) -->

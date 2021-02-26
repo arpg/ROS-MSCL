@@ -281,7 +281,7 @@ void Microstrain::run()
   private_nh.param("raw_file_include_support_data", m_raw_file_include_support_data, false);
   private_nh.param("raw_file_directory",            raw_file_directory, std::string("."));
 
-  inital_time = ros::Time::now();
+  initial_time = ros::Time::now();
 
    
   
@@ -1284,8 +1284,10 @@ void Microstrain::run()
     if(sync_system_time && !filter_enable_external_gps_time_update && 
       m_inertial_device->features().supportsCommand(mscl::MipTypes::Command::CMD_GPS_TIME_UPDATE)){
         ROS_INFO("enable system time sync");
-        ros::Timer timer = node.createTimer(ros::Duration(1), &Microstrain::system_time_callback, this);
+        set_initial_time();
+        sync_system_timer = node.createTimer(ros::Duration(1), &Microstrain::system_time_callback, this);
     }
+
 
 
     //
@@ -1417,7 +1419,9 @@ void Microstrain::parse_imu_packet(const mscl::MipDataPacket &packet)
      time = packet.deviceTimestamp().nanoseconds();
   }
 
-  time = time + inital_time.toSec();
+  //std::cout << "Time: " << time << " Initial Time Seconds: " << initial_time.toSec() << "Nano: " << initial_time.toNSec() << std::endl;
+
+  //time = time + initial_time.toNSec();
 
   //IMU timestamp
   m_imu_msg.header.seq      = m_imu_valid_packet_count;
@@ -2251,7 +2255,7 @@ void Microstrain::system_time_callback(const ros::TimerEvent &)
   {
     try
     {
-      long utcTime = ros::Time::now().sec;
+      long utcTime = ros::Time::now().toSec() + m_gps_leap_seconds - UTC_GPS_EPOCH_DUR;
 
       long secs = utcTime % (int)SECS_PER_WEEK;
 
@@ -2270,6 +2274,39 @@ void Microstrain::system_time_callback(const ros::TimerEvent &)
     }
   }
 }
+  
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Initial System Time Set
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+void Microstrain::set_initial_time()
+{
+  ROS_INFO("SYTEM TIME UPDATING Enter");
+  if(m_inertial_device)
+  ROS_INFO("SYTEM TIME UPDATING");
+  {
+    try
+    {
+      long utcTime = ros::Time::now().toSec() + m_gps_leap_seconds - UTC_GPS_EPOCH_DUR;
+
+      long secs = utcTime % (int)SECS_PER_WEEK;
+
+      int weeks = (utcTime - secs)/SECS_PER_WEEK;
+
+
+      m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_WEEKS, weeks);
+      m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_SECONDS, secs);
+
+      ROS_INFO("GPS Update: w%i, s%i",
+               weeks, secs);
+    }
+    catch(mscl::Error &e)
+    {
+      ROS_ERROR("Error: %s", e.what());
+    }
+  }
+}  
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////

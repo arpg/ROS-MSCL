@@ -256,6 +256,8 @@ namespace Microstrain
     void external_gps_time_callback(const sensor_msgs::TimeReference& time);
     void system_time_callback(const ros::TimerEvent &);
 
+    void set_initial_time();
+
 
   private:
 
@@ -387,6 +389,9 @@ namespace Microstrain
   std::string m_velocity_zupt_topic;
   std::string m_angular_zupt_topic;
   std::string m_external_gps_time_topic;
+
+  //Sync System Time
+  ros::Timer sync_system_timer;
   
   //Publish data flags
   bool m_publish_imu;
@@ -413,7 +418,7 @@ namespace Microstrain
   int m_gnss_data_rate[NUM_GNSS];
   int m_filter_data_rate;
 
-  ros::Time inital_time;
+  ros::Time initial_time;
 
   //Gnss antenna offsets
   std::vector<double> m_gnss_antenna_offset[NUM_GNSS];
