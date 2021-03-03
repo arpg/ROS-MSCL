@@ -1284,8 +1284,8 @@ void Microstrain::run()
     if(sync_system_time && !filter_enable_external_gps_time_update && 
       m_inertial_device->features().supportsCommand(mscl::MipTypes::Command::CMD_GPS_TIME_UPDATE)){
         ROS_INFO("enable system time sync");
-        set_initial_time();
-        sync_system_timer = node.createTimer(ros::Duration(1), &Microstrain::system_time_callback, this);
+        //set_initial_time();
+        //sync_system_timer = node.createTimer(ros::Duration(1), &Microstrain::system_time_callback, this);
     }
 
 
@@ -2249,9 +2249,9 @@ void Microstrain::external_gps_time_callback(const sensor_msgs::TimeReference& t
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 void Microstrain::system_time_callback(const ros::TimerEvent &)
 {
-  ROS_INFO("SYTEM TIME UPDATING Enter");
+  //ROS_INFO("SYTEM TIME UPDATING Enter");
   if(m_inertial_device)
-  ROS_INFO("SYTEM TIME UPDATING");
+  //ROS_INFO("SYTEM TIME UPDATING");
   {
     try
     {
@@ -2265,8 +2265,8 @@ void Microstrain::system_time_callback(const ros::TimerEvent &)
       m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_WEEKS, weeks);
       m_inertial_device->setGPSTimeUpdate(mscl::MipTypes::TimeFrame::TIME_FRAME_SECONDS, secs);
 
-      ROS_INFO("GPS Update: w%i, s%i",
-               weeks, secs);
+      //ROS_INFO("GPS Update: w%i, s%i",
+      //         weeks, secs);
     }
     catch(mscl::Error &e)
     {
